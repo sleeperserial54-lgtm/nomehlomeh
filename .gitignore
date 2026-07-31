@@ -1,0 +1,4 @@
+data/memories.sqlite
+node_modules/
+.env
+data/uploads/

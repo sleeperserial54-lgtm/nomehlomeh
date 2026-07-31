@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Memory Vault Admin</title>
+  <link rel="stylesheet" href="./admin.css">
+</head>
+<body>
+  <main class="admin-page">
+    <a class="admin-page__back" href="/">← View public memories</a>
+    <section class="admin-card">
+      <p class="eyebrow">Memory vault · admin</p>
+      <section id="login-panel">
+        <h1>Admin sign in</h1>
+        <p class="intro">Enter your admin credentials to manage public memories.</p>
+        <form id="login-form">
+          <label>Username<input name="username" autocomplete="username" required></label>
+          <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+          <button type="submit">Sign in</button>
+          <p id="login-status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+      <section id="memory-panel" hidden>
+        <div class="admin-card__toolbar"><h1>Add a memory</h1><button id="logout" type="button">Log out</button></div>
+        <p class="intro">Photos saved here will appear in the public memory carousel.</p>
+        <form id="memory-form">
+          <label>Photo<input name="photo" type="file" accept="image/*" required></label>
+          <label>Title<input name="title" maxlength="50" placeholder="A perfect day" required></label>
+          <label>Memory note<textarea name="note" maxlength="220" placeholder="Why this moment matters..."></textarea></label>
+          <button type="submit">Save memory</button>
+          <p id="status" role="status" aria-live="polite"></p>
+        </form>
+        <section class="memory-list-section" aria-labelledby="memory-list-title">
+          <h2 id="memory-list-title">Uploaded memories</h2>
+          <div id="memory-list" class="memory-list"></div>
+        </section>
+        <section class="music-settings" aria-labelledby="music-settings-title">
+          <h2 id="music-settings-title">Playlist player</h2>
+          <p>Paste a YouTube or Spotify playlist link for the public player.</p>
+          <form id="music-form">
+            <label>Playlist URL<input name="playlistUrl" type="url" placeholder="https://www.youtube.com/playlist?list=..." required></label>
+            <button type="submit">Save playlist</button>
+            <p id="music-status" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+      </section>
+    </section>
+  </main>
+  <script src="./admin.js"></script>
+</body>
+</html>
