@@ -250,6 +250,7 @@ const imageUrl = (path) => new URL(path, apiBase ? `${apiBase}/` : window.locati
       youtubePlayer = new window.YT.Player(playerTarget.id, {
         height: "1",
         width: "1",
+        videoId: media.id,
         playerVars: { playsinline: 1, rel: 0, controls: 0, autoplay: 1 },
         events: {
           onReady: (event) => {
