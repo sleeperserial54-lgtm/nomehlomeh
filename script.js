@@ -162,6 +162,36 @@ const imageUrl = (path) => new URL(path, apiBase ? `${apiBase}/` : window.locati
     document.head.append(script);
   });
 
+  const getMediaInfo = (url) => {
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.replace(/^www\./, "");
+
+      if (host === "youtube.com" || host === "m.youtube.com") {
+        const videoId = parsed.searchParams.get("v");
+        const listId = parsed.searchParams.get("list");
+        if (videoId) return { type: "youtube", kind: "video", id: videoId };
+        if (listId) return { type: "youtube", kind: "playlist", id: listId };
+        return null;
+      }
+
+      if (host === "youtu.be") {
+        const shortId = parsed.pathname.split("/").filter(Boolean)[0];
+        if (shortId) return { type: "youtube", kind: "video", id: shortId };
+        return null;
+      }
+
+      if (host === "open.spotify.com") {
+        const match = parsed.pathname.match(/\/(track|playlist|album|artist)\/([A-Za-z0-9]+)/i);
+        if (match) return { type: "spotify", kind: match[1], id: match[2] };
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
   const loadMusic = async () => {
     try {
       const response = await fetch(window.location.port === "3000" ? "/api/music" : "http://localhost:3000/api/music");
@@ -169,16 +199,58 @@ const imageUrl = (path) => new URL(path, apiBase ? `${apiBase}/` : window.locati
       musicEmbed.replaceChildren();
       if (!playlistUrl) return;
 
-      const playlistId = new URL(playlistUrl).searchParams.get("list");
-      if (!playlistId) throw new Error("Playlist ID missing");
+      const media = getMediaInfo(playlistUrl);
+      if (!media) throw new Error("Media URL invalid");
+
+      if (media.type === "spotify") {
+        const iframe = document.createElement("iframe");
+        iframe.src = `https://open.spotify.com/embed/${media.kind}/${media.id}`;
+        iframe.width = "100%";
+        iframe.height = "80";
+        iframe.frameBorder = "0";
+        iframe.allow = "autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture";
+        iframe.loading = "lazy";
+        musicEmbed.append(iframe);
+        musicSong.textContent = media.kind === "track" ? "Spotify track" : "Spotify playlist";
+        setMusicControlsEnabled(false);
+        return;
+      }
+
+      
       const playerTarget = document.createElement("div");
-      playerTarget.id = "youtube-playlist-player";
+      playerTarget.id = "youtube-player";
       musicEmbed.append(playerTarget);
       await loadYouTubeApi();
+
+      if (media.kind === "playlist") {
+        youtubePlayer = new window.YT.Player(playerTarget.id, {
+          height: "1",
+          width: "1",
+          playerVars: { listType: "playlist", list: media.id, playsinline: 1, rel: 0, controls: 0, autoplay: 1 },
+          events: {
+            onReady: (event) => {
+              updateSongTitle(event.target);
+              setMusicControlsEnabled(true);
+              event.target.playVideo();
+            },
+            onStateChange: (event) => {
+              if (event.data === window.YT.PlayerState.PLAYING) {
+                setMusicPlaying(true);
+                updateSongTitle(event.target, "Now playing");
+              } else if (event.data === window.YT.PlayerState.PAUSED || event.data === window.YT.PlayerState.ENDED) {
+                setMusicPlaying(false);
+                updateSongTitle(event.target);
+              }
+            },
+          },
+        });
+        return;
+      }
+      
       youtubePlayer = new window.YT.Player(playerTarget.id, {
         height: "1",
         width: "1",
-        playerVars: { listType: "playlist", list: playlistId, playsinline: 1, rel: 0, controls: 0, autoplay: 1 },
+        playerVars: { playsinline: 1, rel: 0, controls: 0, autoplay: 1 },
         events: {
           onReady: (event) => {
             updateSongTitle(event.target);
