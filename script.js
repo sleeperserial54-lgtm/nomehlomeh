@@ -24,7 +24,6 @@ const apiBase = configuredApiUrl || "";
 const apiUrl = (path) => `${apiBase}${path}`;
 const memoryApi = apiUrl("/api/memories");
 const imageUrl = (path) => new URL(path, apiBase ? `${apiBase}/` : window.location.href).href;
-  const memoryApi = window.location.port === "3000" ? "/api/memories" : "http://localhost:3000/api/memories";
   let memories = [];
   let activeMemory = 0;
   let youtubePlayer;
