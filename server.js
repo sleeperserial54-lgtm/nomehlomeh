@@ -106,7 +106,7 @@ const server = createServer(async (request, response) => {
       const { fields, files } = parseMultipart(await readBody(request), request.headers["content-type"] || ""); const photo = files.photo; const title = fields.title?.trim(); const note = fields.note?.trim() || "A moment worth remembering.";
       if (!title || !photo || !photo.mime.startsWith("image/")) return send(response, 400, { error: "A title and image are required." });
       const extension = [".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(extname(photo.filename).toLowerCase()) ? extname(photo.filename).toLowerCase() : ".jpg";
-      const imageUrl = `/data/uploads/${randomUUID()}${extension}`; await writeFile(join(root, imageUrl.slice(1)), photo.buffer);
+      const filename = `${randomUUID()}${extension}`; const imageUrl = `/uploads/${filename}`; await writeFile(join(uploadDirectory, filename), photo.buffer);
       const memory = { id: randomUUID(), title: title.slice(0, 50), note: note.slice(0, 220), imageUrl };
       await database.execute("INSERT INTO memories (id, title, note, image_url) VALUES (?, ?, ?, ?)", [memory.id, memory.title, memory.note, memory.imageUrl]);
       return send(response, 201, memory);
@@ -119,7 +119,7 @@ const server = createServer(async (request, response) => {
     if (!rows[0]) return send(response, 404, { error: "Memory not found." });
     await database.execute("DELETE FROM memories WHERE id = ?", [id]);
     const imageUrl = rows[0].image_url;
-    if (imageUrl.startsWith("/data/uploads/")) await unlink(join(root, imageUrl.slice(1))).catch(() => {});
+    if (imageUrl.startsWith("/uploads/")) await unlink(join(uploadDirectory, imageUrl.slice("/uploads/".length))).catch(() => {});
     return send(response, 200, { ok: true });
   }
   if (request.method === "GET" && url.pathname === "/admin") return serveFile(response, "/admin.html");
