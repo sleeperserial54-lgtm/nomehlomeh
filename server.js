@@ -19,7 +19,7 @@ if (
 }
 
 const root = process.cwd();
-const uploadDirectory = join(root, "app", "uploads");
+const uploadDirectory = join(root, "data", "uploads");
 await mkdir(uploadDirectory, { recursive: true });
 const database = mysql.createPool({ host: MYSQL_HOST, port: Number(MYSQL_PORT), database: MYSQL_DATABASE, user: MYSQL_USER, password: MYSQL_PASSWORD, connectionLimit: 5 });
 await database.query(`CREATE TABLE IF NOT EXISTS admins (
