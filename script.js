@@ -194,7 +194,7 @@ const imageUrl = (path) => new URL(path, apiBase ? `${apiBase}/` : window.locati
 
   const loadMusic = async () => {
     try {
-      const response = await fetch(window.location.port === "3000" ? "/api/music" : "http://localhost:3000/api/music");
+      const response = await fetch(`${apiBase}/api/music`);
       const { playlistUrl } = await response.json();
       musicEmbed.replaceChildren();
       if (!playlistUrl) return;
