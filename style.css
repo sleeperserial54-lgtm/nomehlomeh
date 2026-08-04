@@ -24,6 +24,40 @@ body {
   padding: 50px 0px;
 }
 
+.bg-flower-layer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.bg-flower-layer .flower-group {
+  transform-origin: center;
+  animation: bg-flower-sway 9s ease-in-out infinite alternate;
+}
+
+.bg-flower-layer .flower-group--2 {
+  animation-delay: 1.2s;
+}
+
+.bg-flower-layer .svg-petal {
+  transform-origin: center;
+  animation: petal-breathe 4s ease-in-out infinite alternate;
+}
+
+@keyframes bg-flower-sway {
+  0% { transform: translateY(10px) rotate(-2deg); }
+  100% { transform: translateY(-10px) rotate(2deg); }
+}
+
+@keyframes petal-breathe {
+  0% { transform: scale(0.96); }
+  100% { transform: scale(1.04); }
+}
+
 .night {
   position: fixed;
   left: 50%;
