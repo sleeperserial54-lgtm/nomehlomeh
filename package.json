@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "node --env-file-if-exists=.env server.js",
-    "seed-admin": "node --env-file-if-exists=.env seed-admin.js"
+    "seed-admin": "node --env-file-if-exists=.env seed-admin.js",
+    "migrate-sqlite": "node --env-file-if-exists=.env migrate-sqlite-to-mysql.js"
   },
   "dependencies": {
     "mysql2": "^3.14.4"
