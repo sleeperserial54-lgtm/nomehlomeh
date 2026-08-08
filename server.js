@@ -39,13 +39,29 @@ await database.query(`CREATE TABLE IF NOT EXISTS site_settings (
   setting_key VARCHAR(80) PRIMARY KEY,
   setting_value VARCHAR(500) NOT NULL
 )`);
+await database.query(`CREATE TABLE IF NOT EXISTS sessions (
+  token CHAR(36) PRIMARY KEY,
+  admin_id CHAR(36) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+)`);
 
-const sessions = new Map();
 const mimeTypes = { ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif" };
 const send = (response, status, body, type = "application/json; charset=utf-8", headers = {}) => { response.writeHead(status, { "Content-Type": type, "Access-Control-Allow-Origin": "*", ...headers }); response.end(type.includes("application/json") ? JSON.stringify(body) : body); };
 const readBody = (request) => new Promise((resolve, reject) => { const chunks = []; let size = 0; request.on("data", (chunk) => { size += chunk.length; if (size > 8 * 1024 * 1024) reject(new Error("Upload must be 8 MB or smaller.")); else chunks.push(chunk); }); request.on("end", () => resolve(Buffer.concat(chunks))); request.on("error", reject); });
 const cookies = (request) => Object.fromEntries((request.headers.cookie || "").split(";").map((part) => part.trim().split("=")).filter(([key]) => key));
-const sessionFor = (request) => { const session = sessions.get(cookies(request).memory_admin); return session?.expiresAt > Date.now() ? session : null; };
+const sessionFor = async (request) => {
+  const token = cookies(request).memory_admin;
+  if (!token) return null;
+  const [rows] = await database.execute("SELECT admin_id AS adminId, expires_at AS expiresAt FROM sessions WHERE token = ?", [token]);
+  const session = rows[0];
+  if (!session) return null;
+  if (new Date(session.expiresAt).getTime() <= Date.now()) {
+    await database.execute("DELETE FROM sessions WHERE token = ?", [token]);
+    return null;
+  }
+  return session;
+};
 
 function parseMultipart(body, contentType) {
   const match = contentType.match(/boundary=(?:"([^"]+)"|([^;]+))/);
@@ -84,12 +100,13 @@ const server = createServer(async (request, response) => {
       const { username, password } = JSON.parse((await readBody(request)).toString("utf8"));
       const [rows] = await database.execute("SELECT id, password_hash FROM admins WHERE username = ?", [String(username || "")]);
       if (!rows[0] || !(await verifyPassword(String(password || ""), rows[0].password_hash))) return send(response, 401, { error: "Invalid username or password." });
-      const token = randomUUID(); sessions.set(token, { adminId: rows[0].id, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
+      const token = randomUUID();
+      await database.execute("INSERT INTO sessions (token, admin_id, expires_at) VALUES (?, ?, ?)", [token, rows[0].id, new Date(Date.now() + 24 * 60 * 60 * 1000)]);
       return send(response, 200, { ok: true }, "application/json; charset=utf-8", { "Set-Cookie": `memory_admin=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400` });
     } catch { return send(response, 400, { error: "Could not validate this login." }); }
   }
   if (request.method === "PUT" && url.pathname === "/api/music") {
-    if (!sessionFor(request)) return send(response, 401, { error: "Admin login required." });
+    if (!(await sessionFor(request))) return send(response, 401, { error: "Admin login required." });
     try {
       const { playlistUrl } = JSON.parse((await readBody(request)).toString("utf8"));
       const value = String(playlistUrl || "").trim();
@@ -98,10 +115,14 @@ const server = createServer(async (request, response) => {
       return send(response, 200, { playlistUrl: value });
     } catch { return send(response, 400, { error: "Could not save this playlist." }); }
   }
-  if (request.method === "GET" && url.pathname === "/api/admin/session") return send(response, 200, { authenticated: Boolean(sessionFor(request)) });
-  if (request.method === "POST" && url.pathname === "/api/admin/logout") return send(response, 200, { ok: true }, "application/json; charset=utf-8", { "Set-Cookie": "memory_admin=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0" });
+  if (request.method === "GET" && url.pathname === "/api/admin/session") return send(response, 200, { authenticated: Boolean(await sessionFor(request)) });
+  if (request.method === "POST" && url.pathname === "/api/admin/logout") {
+    const token = cookies(request).memory_admin;
+    if (token) await database.execute("DELETE FROM sessions WHERE token = ?", [token]);
+    return send(response, 200, { ok: true }, "application/json; charset=utf-8", { "Set-Cookie": "memory_admin=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0" });
+  }
   if (request.method === "POST" && url.pathname === "/api/memories") {
-    if (!sessionFor(request)) return send(response, 401, { error: "Admin login required." });
+    if (!(await sessionFor(request))) return send(response, 401, { error: "Admin login required." });
     try {
       const { fields, files } = parseMultipart(await readBody(request), request.headers["content-type"] || ""); const photo = files.photo; const title = fields.title?.trim(); const note = fields.note?.trim() || "A moment worth remembering.";
       if (!title || !photo || !photo.mime.startsWith("image/")) return send(response, 400, { error: "A title and image are required." });
@@ -113,7 +134,7 @@ const server = createServer(async (request, response) => {
     } catch (error) { return send(response, 400, { error: error.message || "Could not save this memory." }); }
   }
   if (request.method === "DELETE" && /^\/api\/memories\/[\w-]+$/.test(url.pathname)) {
-    if (!sessionFor(request)) return send(response, 401, { error: "Admin login required." });
+    if (!(await sessionFor(request))) return send(response, 401, { error: "Admin login required." });
     const id = url.pathname.split("/").at(-1);
     const [rows] = await database.execute("SELECT image_url FROM memories WHERE id = ?", [id]);
     if (!rows[0]) return send(response, 404, { error: "Memory not found." });
