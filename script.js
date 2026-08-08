@@ -1,5 +1,4 @@
 onload = () => {
-  const vaultCode = "052723";
   const vault = document.querySelector(".memory-vault");
   const book = document.querySelector(".memory-book");
   const vaultForm = document.querySelector(".vault__form");
@@ -311,19 +310,26 @@ const imageUrl = (path) => new URL(path, apiBase ? `${apiBase}/` : window.locati
     vaultInput.value = vaultInput.value.replace(/\D/g, "").slice(0, 6);
     vaultMessage.textContent = "";
   });
-  vaultForm.addEventListener("submit", (event) => {
+  vaultForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (vaultInput.value === vaultCode) {
-      vault.classList.add("memory-vault--opening");
-      vaultMessage.textContent = "Vault unlocked.";
-      setTimeout(() => {
-        vault.setAttribute("aria-hidden", "true");
-        vault.classList.remove("memory-vault--visible");
-        launchCelebration();
-        celebrationDialog.showModal();
-      }, 700);
-      return;
-    }
+    try {
+      const response = await fetch(apiUrl("/api/verify-vault"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: vaultInput.value }),
+      });
+      if (response.ok) {
+        vault.classList.add("memory-vault--opening");
+        vaultMessage.textContent = "Vault unlocked.";
+        setTimeout(() => {
+          vault.setAttribute("aria-hidden", "true");
+          vault.classList.remove("memory-vault--visible");
+          launchCelebration();
+          celebrationDialog.showModal();
+        }, 700);
+        return;
+      }
+    } catch {}
     vaultMessage.textContent = "That code does not open this vault. Try again.";
     vaultInput.select();
     vaultForm.classList.remove("vault__form--error");

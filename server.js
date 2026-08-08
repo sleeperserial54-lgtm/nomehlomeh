@@ -39,6 +39,15 @@ await database.query(`CREATE TABLE IF NOT EXISTS site_settings (
   setting_key VARCHAR(80) PRIMARY KEY,
   setting_value VARCHAR(500) NOT NULL
 )`);
+await database.query(`CREATE TABLE IF NOT EXISTS vaults (
+  id CHAR(36) PRIMARY KEY,
+  vault_code VARCHAR(6) NOT NULL UNIQUE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+)`);
+const [existingVaultCodes] = await database.query("SELECT COUNT(*) AS count FROM vaults");
+if (existingVaultCodes[0].count === 0) {
+  await database.execute("INSERT INTO vaults (id, vault_code) VALUES (?, ?)", [randomUUID(), "052723"]);
+}
 
 const sessions = new Map();
 const mimeTypes = { ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif" };
@@ -74,6 +83,15 @@ const server = createServer(async (request, response) => {
   if (request.method === "GET" && url.pathname === "/api/memories") {
     const [rows] = await database.execute("SELECT id, title, note, image_url AS imageUrl FROM memories ORDER BY created_at ASC");
     return send(response, 200, rows);
+  }
+  if (request.method === "POST" && url.pathname === "/api/verify-vault") {
+    try {
+      const { code } = JSON.parse((await readBody(request)).toString("utf8"));
+      const [totalRows] = await database.execute("SELECT COUNT(*) AS count FROM vaults");
+      if (!totalRows[0] || totalRows[0].count === 0) return send(response, 401, { valid: false });
+      const [rows] = await database.execute("SELECT id FROM vaults WHERE vault_code = ?", [String(code || "")]);
+      return send(response, 200, { valid: Boolean(rows[0]) });
+    } catch { return send(response, 400, { error: "Could not verify this code." }); }
   }
   if (request.method === "GET" && url.pathname === "/api/music") {
     const [rows] = await database.execute("SELECT setting_value AS playlistUrl FROM site_settings WHERE setting_key = 'music_playlist'");
